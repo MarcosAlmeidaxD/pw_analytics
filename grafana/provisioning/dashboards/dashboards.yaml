@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: tabacaria
+  - name: pw_analytics
     orgId: 1
-    folder: Tabacaria
+    folder: pw_analytics
     type: file
     disableDeletion: false
     editable: true
