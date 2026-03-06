@@ -1,0 +1,394 @@
+{
+  "id": null,
+  "uid": "pvp-clans",
+  "title": "PvP — Batalha de Clãs",
+  "tags": ["pvp"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "clan_esq",
+        "label": "Clã Esquerdo",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+        "query": "SELECT DISTINCT clan FROM pvp_stats ORDER BY clan",
+        "definition": "SELECT DISTINCT clan FROM pvp_stats ORDER BY clan",
+        "refresh": 2,
+        "sort": 1,
+        "current": {},
+        "options": [],
+        "hide": 0,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "clan_dir",
+        "label": "Clã Direito",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+        "query": "SELECT DISTINCT clan FROM pvp_stats ORDER BY clan",
+        "definition": "SELECT DISTINCT clan FROM pvp_stats ORDER BY clan",
+        "refresh": 2,
+        "sort": 1,
+        "current": {},
+        "options": [],
+        "hide": 0,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Membros — $clan_esq",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) AS \"Membros\" FROM pvp_stats WHERE clan = '$clan_esq'",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "blue", "mode": "fixed" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Kills — $clan_esq",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(SUM(kills), 0) AS \"Kills\" FROM pvp_stats WHERE clan = '$clan_esq'",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "green", "mode": "fixed" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Deaths — $clan_esq",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(SUM(deaths), 0) AS \"Deaths\" FROM pvp_stats WHERE clan = '$clan_esq'",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "red", "mode": "fixed" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "red", "value": null }]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Membros — $clan_dir",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) AS \"Membros\" FROM pvp_stats WHERE clan = '$clan_dir'",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "blue", "mode": "fixed" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total Kills — $clan_dir",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(SUM(kills), 0) AS \"Kills\" FROM pvp_stats WHERE clan = '$clan_dir'",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "green", "mode": "fixed" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Total Deaths — $clan_dir",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(SUM(deaths), 0) AS \"Deaths\" FROM pvp_stats WHERE clan = '$clan_dir'",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "red", "mode": "fixed" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "red", "value": null }]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Ranking — $clan_esq",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 16 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT nick AS \"Nick\", kills AS \"Kills\", kill_streak AS \"Kill Streak\", deaths AS \"Deaths\", death_streak AS \"Death Streak\", kd AS \"K/D\" FROM pvp_stats WHERE clan = '$clan_esq' ORDER BY kills DESC",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "sortBy": [{ "displayName": "Kills", "desc": true }],
+        "footer": { "show": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "displayMode": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Nick" },
+            "properties": [
+              { "id": "custom.align", "value": "left" },
+              { "id": "custom.width", "value": 140 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Kills" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-text" },
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Deaths" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-text" },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Kill Streak" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background-solid" },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "transparent", "value": null },
+                    { "color": "yellow", "value": 3 },
+                    { "color": "orange", "value": 5 },
+                    { "color": "red", "value": 10 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "K/D" },
+            "properties": [
+              { "id": "decimals", "value": 2 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Ranking — $clan_dir",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 16 },
+      "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "tabacaria-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT nick AS \"Nick\", kills AS \"Kills\", kill_streak AS \"Kill Streak\", deaths AS \"Deaths\", death_streak AS \"Death Streak\", kd AS \"K/D\" FROM pvp_stats WHERE clan = '$clan_dir' ORDER BY kills DESC",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "sortBy": [{ "displayName": "Kills", "desc": true }],
+        "footer": { "show": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "displayMode": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Nick" },
+            "properties": [
+              { "id": "custom.align", "value": "left" },
+              { "id": "custom.width", "value": 140 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Kills" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-text" },
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Deaths" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-text" },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Kill Streak" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background-solid" },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "transparent", "value": null },
+                    { "color": "yellow", "value": 3 },
+                    { "color": "orange", "value": 5 },
+                    { "color": "red", "value": 10 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "K/D" },
+            "properties": [
+              { "id": "decimals", "value": 2 }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

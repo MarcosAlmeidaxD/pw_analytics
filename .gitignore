@@ -1,0 +1,23 @@
+# Variáveis de ambiente — NUNCA commitar
+.env
+*.env
+
+# Dados gerados localmente
+data/
+/tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Docker volumes / runtime
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
