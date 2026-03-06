@@ -1,21 +1,19 @@
 services:
 
   # ─────────────────────────────────────────
-  # KAFKA — KRaft mode (sem Zookeeper, MVP)
+  # KAFKA — KRaft mode (sem Zookeeper)
   # ─────────────────────────────────────────
   kafka:
     image: apache/kafka:3.7.0
     container_name: kafka
-    ports:
-      - "9094:9094"   # porta externa (host → kafka, para debug)
     environment:
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qg=="
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: "broker,controller"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
-      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
@@ -27,7 +25,7 @@ services:
     volumes:
       - kafka-data:/tmp/kraft-combined-logs
     networks:
-      - tabacaria-net
+      - pw-net
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
@@ -43,15 +41,15 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka:9092 --topic transactions --partitions 3 --replication-factor 1 &&
-        /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka:9092 --topic pvp_kills    --partitions 1 --replication-factor 1 &&
-        echo 'Topicos criados: transactions, pvp_kills'
+        /opt/kafka/bin/kafka-topics.sh --create --if-not-exists \
+          --bootstrap-server kafka:9092 --topic pvp_kills --partitions 1 --replication-factor 1 &&
+        echo 'Topico criado: pvp_kills'
     networks:
-      - tabacaria-net
+      - pw-net
     restart: "no"
 
   # ─────────────────────────────────────────
-  # POSTGRESQL  (live feed para o Grafana)
+  # POSTGRESQL  (serving layer → Grafana)
   # ─────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
@@ -66,151 +64,12 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - tabacaria-net
+      - pw-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tabacaria -d tabacaria_dw"]
       interval: 5s
       timeout: 5s
       retries: 15
-
-  # ─────────────────────────────────────────
-  # PRODUCER  (Python → Kafka)
-  # ─────────────────────────────────────────
-  producer:
-    build: ./producer
-    container_name: producer
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      KAFKA_TOPIC: transactions
-    networks:
-      - tabacaria-net
-    restart: on-failure
-
-  # ─────────────────────────────────────────
-  # SPARK  (local[2] — pipeline declarativo)
-  # SDP-style: bronze → silver → Parquet + PostgreSQL
-  # ─────────────────────────────────────────
-  spark:
-    image: apache/spark:3.5.3
-    container_name: spark
-    user: root
-    depends_on:
-      kafka:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    ports:
-      - "4040:4040"   # Spark Web UI
-    volumes:
-      - ./spark:/opt/spark/jobs
-      - ./data:/data                # Parquet files
-      - spark-ivy:/root/.ivy2       # cache JARs (--packages)
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      POSTGRES_URL: jdbc:postgresql://postgres:5432/tabacaria_dw
-      POSTGRES_USER: tabacaria
-      POSTGRES_PASSWORD: tabacaria123
-      PYTHONPATH: /opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
-      PYSPARK_PYTHON: python3
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        /opt/spark/bin/spark-submit \
-          --master local[2] \
-          --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,org.postgresql:postgresql:42.7.3 \
-          --conf spark.ui.port=4040 \
-          --conf spark.ui.enabled=true \
-          --conf spark.ui.prometheus.enabled=true \
-          --conf spark.sql.adaptive.enabled=false \
-          --conf spark.executor.memory=512m \
-          --conf spark.driver.memory=512m \
-          /opt/spark/jobs/pipeline.py
-    networks:
-      - tabacaria-net
-    restart: on-failure
-
-  # ─────────────────────────────────────────
-  # KAFKA EXPORTER  (métricas Kafka → Prometheus)
-  # ─────────────────────────────────────────
-  kafka-exporter:
-    image: danielqsj/kafka-exporter:latest
-    container_name: kafka-exporter
-    command:
-      - "--kafka.server=kafka:9092"
-      - "--verbosity=0"
-    ports:
-      - "9308:9308"
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - tabacaria-net
-    restart: on-failure
-
-  # ─────────────────────────────────────────
-  # PROMETHEUS  (coleta de métricas)
-  # ─────────────────────────────────────────
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.retention.time=7d"
-      - "--web.enable-lifecycle"
-    networks:
-      - tabacaria-net
-    restart: unless-stopped
-
-  # ─────────────────────────────────────────
-  # GRAFANA  (dashboard)
-  # ─────────────────────────────────────────
-  grafana:
-    image: grafana/grafana:10.3.3
-    container_name: grafana
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/tabacaria.json
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-    networks:
-      - tabacaria-net
-
-  # ─────────────────────────────────────────
-  # PVP CONTROL  (Web UI: configurar producer em tempo real)
-  # ─────────────────────────────────────────
-  pvp-control:
-    build: ./pvp_control
-    container_name: pvp-control
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-    environment:
-      PG_HOST: postgres
-      PG_PORT: "5432"
-      PG_DB: tabacaria_dw
-      PG_USER: tabacaria
-      PG_PASS: tabacaria123
-    networks:
-      - tabacaria-net
-    restart: unless-stopped
 
   # ─────────────────────────────────────────
   # DISCORD PRODUCER  (Discord API → Kafka pvp_kills)
@@ -237,11 +96,12 @@ services:
       PG_USER: tabacaria
       PG_PASS: tabacaria123
     networks:
-      - tabacaria-net
+      - pw-net
     restart: on-failure
 
   # ─────────────────────────────────────────
-  # PVP SPARK  (Kafka pvp_kills → Delta + PostgreSQL)
+  # PVP SPARK  (Kafka pvp_kills → Silver Delta Lake + Gold PostgreSQL)
+  # Medallion: Bronze → Silver (Delta MERGE) → Gold (pvp_stats UPSERT)
   # ─────────────────────────────────────────
   pvp-spark:
     image: apache/spark:3.5.3
@@ -253,7 +113,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "4041:4040"   # Spark Web UI (pvp)
+      - "4040:4040"   # Spark Web UI
     volumes:
       - ./spark:/opt/spark/jobs
       - ./data:/data                  # Delta tables
@@ -282,17 +142,94 @@ services:
           --conf spark.driver.memory=512m \
           /opt/spark/jobs/pvp_pipeline.py
     networks:
-      - tabacaria-net
+      - pw-net
     restart: on-failure
+
+  # ─────────────────────────────────────────
+  # PVP CONTROL  (Web UI — config, timelapse, reset)
+  # ─────────────────────────────────────────
+  pvp-control:
+    build: ./pvp_control
+    container_name: pvp-control
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_DB: tabacaria_dw
+      PG_USER: tabacaria
+      PG_PASS: tabacaria123
+    networks:
+      - pw-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # KAFKA EXPORTER  (métricas Kafka → Prometheus)
+  # ─────────────────────────────────────────
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    command:
+      - "--kafka.server=kafka:9092"
+      - "--verbosity=0"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - pw-net
+    restart: on-failure
+
+  # ─────────────────────────────────────────
+  # PROMETHEUS  (coleta de métricas)
+  # ─────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    networks:
+      - pw-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # GRAFANA  (dashboard)
+  # ─────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.3
+    container_name: grafana
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/pvp.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - pw-net
 
 volumes:
   kafka-data:
   postgres-data:
   grafana-data:
-  spark-ivy:
   pvp-spark-ivy:
   prometheus-data:
 
 networks:
-  tabacaria-net:
+  pw-net:
     driver: bridge
