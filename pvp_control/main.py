@@ -122,6 +122,15 @@ def index(msg: str = Query(default="")):
                 FROM pvp_stats GROUP BY clan ORDER BY k DESC
             """)
             clan_rows = cur.fetchall()
+
+            # Últimos kill events
+            cur.execute("""
+                SELECT hora, cla_kill, nick_kill, cla_death, nick_death
+                FROM pvp_events
+                ORDER BY msg_id DESC
+                LIMIT 30
+            """)
+            recent_kills = cur.fetchall()
     finally:
         conn.close()
 
@@ -182,6 +191,17 @@ def index(msg: str = Query(default="")):
         if stop_id and last_msg_id != "—" and int(last_msg_id) >= stop_id - 1
         else '<span style="background:#66bb6a;color:#000;padding:3px 10px;border-radius:12px;font-size:.8em">LIVE</span>'
     )
+
+    # ── Recent kills table ───────────────────────────────────────────────────
+    recent_html = ""
+    for hora, cla_kill, nick_kill, cla_death, nick_death in recent_kills:
+        recent_html += f"""
+        <tr>
+            <td style="font-family:monospace;color:#ffb74d">{hora}</td>
+            <td style="color:#66bb6a">[{cla_kill}] {nick_kill}</td>
+            <td style="color:#888;text-align:center">⚔</td>
+            <td style="color:#ef5350">[{cla_death}] {nick_death}</td>
+        </tr>"""
 
     # ── Clan table ───────────────────────────────────────────────────────────
     clan_html = ""
@@ -362,6 +382,14 @@ def index(msg: str = Query(default="")):
       <tbody>{timelapse_html or '<tr><td colspan="3" style="color:#555;text-align:center;padding:12px">Sem dados ainda</td></tr>'}</tbody>
     </table>
   </div>
+
+  <h2>⚔ Últimos Kill Events</h2>
+  <table>
+    <thead>
+      <tr><th>Hora</th><th>Killer</th><th style="text-align:center">vs</th><th>Vítima</th></tr>
+    </thead>
+    <tbody>{recent_html or '<tr><td colspan="4" style="color:#555;text-align:center">Sem registros ainda</td></tr>'}</tbody>
+  </table>
 
   <h2>⚙ Configuração do Producer</h2>
   <div class="form-card">
