@@ -7,6 +7,7 @@ Auto-refresh a cada 10s. Lê stats do PostgreSQL.
 import os
 import time as _time
 import psycopg2
+import docker as docker_sdk
 from fastapi import FastAPI, Form, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -40,6 +41,16 @@ def fmt_duration(ms: int) -> str:
     if h:
         return f"{h}h {m:02d}m {sec:02d}s"
     return f"{m}m {sec:02d}s"
+
+
+def get_container_logs(name: str, lines: int = 80) -> str:
+    try:
+        client = docker_sdk.from_env()
+        container = client.containers.get(name)
+        raw = container.logs(tail=lines, timestamps=False).decode("utf-8", errors="replace")
+        return raw.strip() or "(sem saída)"
+    except Exception as e:
+        return f"(erro ao buscar logs de {name}: {e})"
 
 
 def init_db():
@@ -114,6 +125,10 @@ def index(msg: str = Query(default="")):
     finally:
         conn.close()
 
+    # Logs dos containers
+    logs_producer = get_container_logs("discord-producer", lines=60)
+    logs_spark    = get_container_logs("pvp-spark",        lines=60)
+
     # ── Duração ──────────────────────────────────────────────────────────────
     if min_id:
         start_ms = snowflake_ms(min_id)
@@ -141,6 +156,25 @@ def index(msg: str = Query(default="")):
                       '</div>'),
     }
     banner = banners.get(msg, "")
+
+    def colorize_log(raw: str) -> str:
+        import html as _html
+        lines = []
+        for line in raw.splitlines():
+            escaped = _html.escape(line)
+            lo = line.lower()
+            if any(w in lo for w in ("error", "exception", "traceback", "errno", "failed", "critical")):
+                lines.append(f'<span class="err">{escaped}</span>')
+            elif any(w in lo for w in ("warn", "aviso", "retry")):
+                lines.append(f'<span class="warn">{escaped}</span>')
+            elif any(w in lo for w in ("kill", "enviado", "upsert", "batch", "commit", "published", "processado")):
+                lines.append(f'<span class="ok">{escaped}</span>')
+            else:
+                lines.append(escaped)
+        return "\n".join(lines)
+
+    logs_producer_html = colorize_log(logs_producer)
+    logs_spark_html    = colorize_log(logs_spark)
 
     stop_label = f"{stop_id:,}" if stop_id else "∞ (live)"
     mode_badge = (
@@ -252,6 +286,21 @@ def index(msg: str = Query(default="")):
     .timelapse-wrap {{ max-height: 300px; overflow-y: auto; border-radius: 8px;
                        background: #16213e; border: 1px solid #2a2a4a; padding: 8px; }}
     .footer {{ color: #444; font-size: .78em; margin-top: 28px; text-align: center; }}
+    .log-box {{
+      background: #0a0a14; border: 1px solid #2a2a4a; border-radius: 8px;
+      padding: 12px 14px; font-family: monospace; font-size: .78em;
+      color: #b0b0c8; white-space: pre-wrap; word-break: break-all;
+      max-height: 260px; overflow-y: auto;
+    }}
+    .log-box .ok  {{ color: #66bb6a; }}
+    .log-box .err {{ color: #ef5350; }}
+    .log-box .warn{{ color: #ffb74d; }}
+    .log-tabs {{ display: flex; gap: 8px; margin-bottom: 8px; }}
+    .log-tab {{
+      padding: 5px 14px; border-radius: 6px 6px 0 0; border: 1px solid #2a2a4a;
+      border-bottom: none; font-size: .8em; cursor: pointer; background: #16213e; color: #888;
+    }}
+    .log-tab.active {{ background: #0a0a14; color: #4fc3f7; }}
   </style>
 </head>
 <body>
@@ -359,12 +408,30 @@ def index(msg: str = Query(default="")):
     </form>
   </div>
 
-  <p class="footer">
+  <h2>🖥 Logs dos Containers</h2>
+  <div class="log-tabs">
+    <div class="log-tab active" onclick="showLog('producer',this)">discord-producer</div>
+    <div class="log-tab"        onclick="showLog('spark',this)">pvp-spark</div>
+  </div>
+  <div id="log-producer" class="log-box">{logs_producer_html}</div>
+  <div id="log-spark"    class="log-box" style="display:none">{logs_spark_html}</div>
+
+  <p class="footer" style="margin-top:20px">
     Grafana → <a href="http://localhost:3000" style="color:#4fc3f7">localhost:3000</a>
     &nbsp;|&nbsp;
     Spark UI → <a href="http://localhost:4041" style="color:#4fc3f7">localhost:4041</a>
   </p>
 </div>
+<script>
+function showLog(id, el) {{
+  document.querySelectorAll('.log-box').forEach(b => b.style.display='none');
+  document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('log-' + id).style.display = 'block';
+  el.classList.add('active');
+}}
+// Scroll logs to bottom on load
+document.querySelectorAll('.log-box').forEach(b => b.scrollTop = b.scrollHeight);
+</script>
 </body>
 </html>"""
     return HTMLResponse(html)
