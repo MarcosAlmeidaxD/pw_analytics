@@ -399,14 +399,18 @@ def update_config(
 
 @app.post("/reset")
 def reset_all():
-    """Apaga pvp_stats e pvp_events e reseta o cursor para start_id."""
+    """
+    Reset completo da sessão:
+    1. Trunca pvp_stats e pvp_events
+    2. Reseta cursor para start_id
+    3. Reinicia pvp-spark (limpa checkpoint /tmp automaticamente)
+    """
     conn = get_conn()
     conn.autocommit = True
     try:
         with conn.cursor() as cur:
             cur.execute("TRUNCATE TABLE pvp_events")
             cur.execute("TRUNCATE TABLE pvp_stats")
-            # Reseta cursor para start_id configurado
             cur.execute("""
                 UPDATE pvp_cursor SET last_msg_id = (
                     SELECT start_id FROM pvp_config WHERE id = 1
@@ -414,4 +418,14 @@ def reset_all():
             """)
     finally:
         conn.close()
+
+    # Reinicia pvp-spark — checkpoint em /tmp é apagado automaticamente no restart
+    try:
+        import docker as docker_sdk
+        client = docker_sdk.from_env()
+        container = client.containers.get("pvp-spark")
+        container.restart(timeout=5)
+    except Exception as e:
+        print(f"[reset] aviso: nao foi possivel reiniciar pvp-spark: {e}", flush=True)
+
     return RedirectResponse("/?msg=reset", status_code=303)
