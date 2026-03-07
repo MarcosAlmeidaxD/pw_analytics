@@ -82,6 +82,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       CHANNEL_ID: ${CHANNEL_ID:-1035423433040875590}
