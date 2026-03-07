@@ -176,7 +176,7 @@ def index(msg: str = Query(default="")):
     logs_producer_html = colorize_log(logs_producer)
     logs_spark_html    = colorize_log(logs_spark)
 
-    stop_label = f"{stop_id:,}" if stop_id else "∞ (live)"
+    stop_label = str(stop_id) if stop_id else "∞ (live)"
     mode_badge = (
         '<span style="background:#ef5350;color:#fff;padding:3px 10px;border-radius:12px;font-size:.8em">STOPPED</span>'
         if stop_id and last_msg_id != "—" and int(last_msg_id) >= stop_id - 1
