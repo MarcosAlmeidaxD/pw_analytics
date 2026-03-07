@@ -238,9 +238,19 @@ def main():
         # ── Publish ───────────────────────────────────────────────────────────
         if messages:
             for msg in messages:
+                # Combina content + descrições de embeds em um único texto
+                parts = [msg.get("content", "")]
+                for embed in msg.get("embeds", []):
+                    if embed.get("title"):
+                        parts.append(embed["title"])
+                    if embed.get("description"):
+                        parts.append(embed["description"])
+                    for field in embed.get("fields", []):
+                        parts.append(f"{field.get('name','')} {field.get('value','')}")
+                full_text = "\n".join(p for p in parts if p)
                 producer.send(KAFKA_TOPIC, value={
                     "id":      msg["id"],
-                    "content": msg.get("content", ""),
+                    "content": full_text,
                 })
                 last_id = int(msg["id"])
 

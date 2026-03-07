@@ -102,46 +102,26 @@ services:
     restart: on-failure
 
   # ─────────────────────────────────────────
-  # PVP SPARK  (Kafka pvp_kills → Silver Delta Lake + Gold PostgreSQL)
-  # Medallion: Bronze → Silver (Delta MERGE) → Gold (pvp_stats UPSERT)
+  # PVP CONSUMER  (Kafka pvp_kills → PostgreSQL)
   # ─────────────────────────────────────────
-  pvp-spark:
-    build: ./pvp_spark
-    container_name: pvp-spark
-    user: root
+  pvp-consumer:
+    build: ./pvp_consumer
+    container_name: pvp-consumer
     depends_on:
       kafka:
         condition: service_healthy
       postgres:
         condition: service_healthy
-    ports:
-      - "4040:4040"   # Spark Web UI
-    volumes:
-      - ./spark:/opt/spark/jobs
-      - ./data:/data                  # Delta tables
-      - pvp-spark-ivy:/root/.ivy2     # cache JARs
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: pvp_kills
       PG_HOST: postgres
       PG_PORT: "5432"
       PG_DB: tabacaria_dw
       PG_USER: tabacaria
       PG_PASS: tabacaria123
-      PYTHONPATH: /opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
-      PYSPARK_PYTHON: python3
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        /opt/spark/bin/spark-submit \
-          --master local[2] \
-          --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,io.delta:delta-spark_2.12:3.2.0 \
-          --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension \
-          --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog \
-          --conf spark.ui.port=4040 \
-          --conf spark.ui.enabled=true \
-          --conf spark.executor.memory=512m \
-          --conf spark.driver.memory=512m \
-          /opt/spark/jobs/pvp_pipeline.py
     networks:
       - pw-net
     restart: on-failure
@@ -230,7 +210,6 @@ volumes:
   kafka-data:
   postgres-data:
   grafana-data:
-  pvp-spark-ivy:
   prometheus-data:
 
 networks:

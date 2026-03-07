@@ -136,7 +136,7 @@ def index(msg: str = Query(default="")):
 
     # Logs dos containers
     logs_producer = get_container_logs("discord-producer", lines=60)
-    logs_spark    = get_container_logs("pvp-spark",        lines=60)
+    logs_spark    = get_container_logs("pvp-consumer",     lines=60)
 
     # ── Duração ──────────────────────────────────────────────────────────────
     if min_id:
@@ -439,7 +439,7 @@ def index(msg: str = Query(default="")):
   <h2>🖥 Logs dos Containers</h2>
   <div class="log-tabs">
     <div class="log-tab active" onclick="showLog('producer',this)">discord-producer</div>
-    <div class="log-tab"        onclick="showLog('spark',this)">pvp-spark</div>
+    <div class="log-tab"        onclick="showLog('spark',this)">pvp-consumer</div>
   </div>
   <div id="log-producer" class="log-box">{logs_producer_html}</div>
   <div id="log-spark"    class="log-box" style="display:none">{logs_spark_html}</div>
@@ -497,9 +497,9 @@ def reset_all():
     """
     Reset completo da sessão:
     1. Trunca pvp_stats e pvp_events e reseta cursor
-    2. Purga tópico Kafka pvp_kills (apaga mensagens antigas)
-    3. Apaga checkpoint do Spark em /tmp via exec
-    4. Reinicia pvp-spark
+    2. Purga tópico Kafka pvp_kills (delete + recreate)
+    3. Reinicia discord-producer (reconecta ao tópico recriado)
+    4. Reinicia pvp-consumer (reseta offset para earliest)
     """
     # 1. Limpa banco
     conn = get_conn()
@@ -533,12 +533,13 @@ def reset_all():
             detach=False
         )
 
-        # 3. Apaga checkpoint e Delta table (ambos precisam de limpeza no reset)
-        spark = client.containers.get("pvp-spark")
-        spark.exec_run("rm -rf /tmp/checkpoints/pvp /data/pvp_events_delta", detach=False)
+        # 3. Reinicia discord-producer — reconecta ao tópico já recriado
+        producer = client.containers.get("discord-producer")
+        producer.restart(timeout=10)
 
-        # 4. Reinicia pvp-spark
-        spark.restart(timeout=10)
+        # 4. Reinicia pvp-consumer — reseta offset para earliest no novo tópico
+        consumer = client.containers.get("pvp-consumer")
+        consumer.restart(timeout=10)
 
     except Exception as e:
         print(f"[reset] aviso: {e}", flush=True)
