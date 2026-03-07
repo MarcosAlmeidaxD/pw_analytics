@@ -1,3 +1,6 @@
+# Memória interna do projeto (não vai pro repo)
+.claude/
+
 # Variáveis de ambiente — NUNCA commitar
 .env
 *.env
