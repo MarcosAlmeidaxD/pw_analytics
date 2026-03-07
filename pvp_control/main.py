@@ -468,10 +468,12 @@ def update_config(
 def reset_all():
     """
     Reset completo da sessão:
-    1. Trunca pvp_stats e pvp_events
-    2. Reseta cursor para start_id
-    3. Reinicia pvp-spark (limpa checkpoint /tmp automaticamente)
+    1. Trunca pvp_stats e pvp_events e reseta cursor
+    2. Purga tópico Kafka pvp_kills (apaga mensagens antigas)
+    3. Apaga checkpoint do Spark em /tmp via exec
+    4. Reinicia pvp-spark
     """
+    # 1. Limpa banco
     conn = get_conn()
     conn.autocommit = True
     try:
@@ -486,13 +488,31 @@ def reset_all():
     finally:
         conn.close()
 
-    # Reinicia pvp-spark — checkpoint em /tmp é apagado automaticamente no restart
     try:
-        import docker as docker_sdk
         client = docker_sdk.from_env()
-        container = client.containers.get("pvp-spark")
-        container.restart(timeout=5)
+
+        # 2. Purga tópico Kafka — apaga todas as mensagens antigas
+        kafka = client.containers.get("kafka")
+        kafka.exec_run(
+            "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 "
+            "--delete --topic pvp_kills",
+            detach=False
+        )
+        _time.sleep(2)
+        kafka.exec_run(
+            "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 "
+            "--create --topic pvp_kills --partitions 1 --replication-factor 1",
+            detach=False
+        )
+
+        # 3. Apaga checkpoint do Spark (docker restart NÃO limpa /tmp)
+        spark = client.containers.get("pvp-spark")
+        spark.exec_run("rm -rf /tmp/checkpoints/pvp", detach=False)
+
+        # 4. Reinicia pvp-spark
+        spark.restart(timeout=10)
+
     except Exception as e:
-        print(f"[reset] aviso: nao foi possivel reiniciar pvp-spark: {e}", flush=True)
+        print(f"[reset] aviso: {e}", flush=True)
 
     return RedirectResponse("/?msg=reset", status_code=303)
