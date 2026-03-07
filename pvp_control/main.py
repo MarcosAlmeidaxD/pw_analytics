@@ -505,9 +505,9 @@ def reset_all():
             detach=False
         )
 
-        # 3. Apaga checkpoint do Spark (docker restart NÃO limpa /tmp)
+        # 3. Apaga checkpoint e Delta table (ambos precisam de limpeza no reset)
         spark = client.containers.get("pvp-spark")
-        spark.exec_run("rm -rf /tmp/checkpoints/pvp", detach=False)
+        spark.exec_run("rm -rf /tmp/checkpoints/pvp /data/pvp_events_delta", detach=False)
 
         # 4. Reinicia pvp-spark
         spark.restart(timeout=10)

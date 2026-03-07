@@ -211,6 +211,7 @@ def process_batch(batch_df: DataFrame, batch_id: int) -> None:
                                 nick_death, processed_at))
 
     if not events:
+        log("batch_empty", batch_id=batch_id, messages=len(rows))
         return
 
     spark = batch_df.sparkSession
